@@ -3,6 +3,7 @@ package drivers
 import "github.com/AdonaIsium/storage-api-practice/core"
 
 type CreateVolumeSpec struct {
+	ID        core.VolumeID
 	Name      string
 	SizeBytes int64
 	Thin      bool
@@ -11,6 +12,7 @@ type CreateVolumeSpec struct {
 }
 
 type CreateHostSpec struct {
+	ID         core.HostID
 	Name       string
 	Identities []core.HostIdentity
 }

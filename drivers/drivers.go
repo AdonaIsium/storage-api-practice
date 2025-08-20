@@ -6,6 +6,13 @@ import (
 	"github.com/AdonaIsium/storage-api-practice/core"
 )
 
+type Capabilities struct {
+	SupportsSnapshots bool
+	SupportsClones    bool
+	SupportsQoS       bool
+	MaxLUN            int
+}
+
 type Driver interface {
 	CreateVolume(ctx context.Context, spec CreateVolumeSpec) (core.Volume, error)
 	ExpandVolume(ctx context.Context, id core.VolumeID, newSize int64) error

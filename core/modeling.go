@@ -2,6 +2,7 @@ package core
 
 import "time"
 
+// Types here model our SAN for mocking
 type VolumeID string
 type HostID string
 type MappingID string
