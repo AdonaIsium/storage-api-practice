@@ -68,6 +68,7 @@ type Job struct {
 	ErrorCode      string
 	ErrorMsg       string
 	ErrorDetails   map[string]any
+	Params         map[string]string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

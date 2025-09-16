@@ -4,7 +4,7 @@ import "context"
 
 // ProvisionService to create/expand/delete volume
 type ProvisionService interface {
-	RequestCreateVolume(ctx context.Context, req CreateVolumeRequest) (JobID, error)
+	RequestCreateVolume(ctx context.Context, req CreateVolumeRequest, idemKey string) (JobID, error)
 	RequestExpandVolume(ctx context.Context, id VolumeID, newSize int64, idemKey string) (JobID, error)
 	RequestDeleteVolume(ctx context.Context, id VolumeID, idemKey string) (JobID, error)
 }
