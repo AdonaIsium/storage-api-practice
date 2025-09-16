@@ -2,6 +2,7 @@ package jobs
 
 import (
     "context"
+    "encoding/json"
     "fmt"
     "strconv"
     "time"
@@ -107,15 +108,85 @@ func RegisterDeleteVolume(r *InMemoryRegistry) {
 }
 
 func RegisterCreateHost(r *InMemoryRegistry) {
-    // TODO
+    r.must(job(JobCreateHost,
+        step(StepValidateInput, func(ctx context.Context, d Deps, js *core.Job) error {
+            if js.Params["name"] == "" || js.Params["identities_json"] == "" {
+                return fmt.Errorf("missing name or identities")
+            }
+            return nil
+        }),
+        step(StepCallDriver, func(ctx context.Context, d Deps, js *core.Job) error {
+            var ids []core.HostIdentity
+            _ = json.Unmarshal([]byte(js.Params["identities_json"]), &ids)
+            _, err := d.Driver.CreateHost(ctx, drivers.CreateHostSpec{
+                ID:         core.HostID(js.Params["host_id"]),
+                Name:       js.Params["name"],
+                Identities: ids,
+            })
+            return err
+        }),
+        step(StepPersistResult, func(ctx context.Context, d Deps, js *core.Job) error {
+            var idsL []core.HostIdentity
+            _ = json.Unmarshal([]byte(js.Params["identities_json"]), &idsL)
+            now := time.Now()
+            h := &core.Host{ID: core.HostID(js.Params["host_id"]), Name: js.Params["name"], Identities: idsL, CreatedAt: now, UpdatedAt: now}
+            return d.Hosts.Save(ctx, h)
+        }),
+        step(StepEmitAudit, func(ctx context.Context, d Deps, js *core.Job) error {
+            e := &core.AuditEvent{ID: js.CorrelationID, At: time.Now(), Actor: "system", Action: JobCreateHost, Resources: []string{js.Params["host_id"]}, After: map[string]string{"name": js.Params["name"]}, Meta: map[string]string{"job_id": string(js.ID)}}
+            return d.Audit.Append(ctx, e)
+        }),
+    ))
 }
 
 func RegisterMapVolume(r *InMemoryRegistry) {
-    // TODO
+    r.must(job(JobMapVolume,
+        step(StepValidateInput, func(ctx context.Context, d Deps, js *core.Job) error {
+            if js.Params["volume_id"] == "" || js.Params["host_id"] == "" {
+                return fmt.Errorf("volume_id and host_id required")
+            }
+            if _, err := d.Volumes.Get(ctx, core.VolumeID(js.Params["volume_id"])); err != nil { return err }
+            if _, err := d.Hosts.Get(ctx, core.HostID(js.Params["host_id"])); err != nil { return err }
+            return nil
+        }),
+        step(StepCallDriver, func(ctx context.Context, d Deps, js *core.Job) error {
+            var lunPtr *int
+            if s := js.Params["lun"]; s != "" {
+                if v, err := strconv.Atoi(s); err == nil { lunPtr = &v }
+            }
+            _, err := d.Driver.MapVolume(ctx, core.VolumeID(js.Params["volume_id"]), core.HostID(js.Params["host_id"]), drivers.MapOpts{LUN: lunPtr})
+            return err
+        }),
+        step(StepPersistResult, func(ctx context.Context, d Deps, js *core.Job) error {
+            var lun int
+            if s := js.Params["lun"]; s != "" { _ = func() error { v, e := strconv.Atoi(s); if e == nil { lun = v }; return nil }() }
+            m := &core.Mapping{ID: core.MappingID(js.Params["mapping_id"]), VolumeID: core.VolumeID(js.Params["volume_id"]), HostID: core.HostID(js.Params["host_id"]), LUN: lun, CreatedAt: time.Now()}
+            return d.Mappings.Save(ctx, m)
+        }),
+        step(StepEmitAudit, func(ctx context.Context, d Deps, js *core.Job) error {
+            e := &core.AuditEvent{ID: js.CorrelationID, At: time.Now(), Actor: "system", Action: JobMapVolume, Resources: []string{js.Params["mapping_id"], js.Params["volume_id"], js.Params["host_id"]}, Meta: map[string]string{"job_id": string(js.ID)}}
+            return d.Audit.Append(ctx, e)
+        }),
+    ))
 }
 
 func RegisterUnmapVolume(r *InMemoryRegistry) {
-    // TODO
+    r.must(job(JobUnmapVolume,
+        step(StepValidateInput, func(ctx context.Context, d Deps, js *core.Job) error {
+            if js.Params["mapping_id"] == "" { return fmt.Errorf("mapping_id required") }
+            return nil
+        }),
+        step(StepCallDriver, func(ctx context.Context, d Deps, js *core.Job) error {
+            return d.Driver.UnmapVolume(ctx, core.MappingID(js.Params["mapping_id"]))
+        }),
+        step(StepPersistResult, func(ctx context.Context, d Deps, js *core.Job) error {
+            return d.Mappings.Delete(ctx, core.MappingID(js.Params["mapping_id"]))
+        }),
+        step(StepEmitAudit, func(ctx context.Context, d Deps, js *core.Job) error {
+            e := &core.AuditEvent{ID: js.CorrelationID, At: time.Now(), Actor: "system", Action: JobUnmapVolume, Resources: []string{js.Params["mapping_id"]}, Meta: map[string]string{"job_id": string(js.ID)}}
+            return d.Audit.Append(ctx, e)
+        }),
+    ))
 }
 
 // helpers to register steps

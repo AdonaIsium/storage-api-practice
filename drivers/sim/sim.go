@@ -2,7 +2,7 @@ package sim
 
 import (
     "context"
-    "math/rand/v2"
+    "math/rand"
     "sync"
 
     "github.com/AdonaIsium/storage-api-practice/core"
@@ -16,8 +16,11 @@ type SimDriver struct {
 }
 
 func New(cfg Config) *SimDriver {
-    // ignore validation error here; caller can validate separately
-    src := rand.New(rand.NewPCG(uint64(cfg.RNGSeend), uint64(cfg.RNGSeend^0x9e3779b97f4a7c15)))
+    // ignore validation error; mock environment
+    if cfg.RNGSeed == 0 {
+        cfg.RNGSeed = 1
+    }
+    src := rand.New(rand.NewSource(cfg.RNGSeed))
     return &SimDriver{cfg: cfg, rng: src}
 }
 
@@ -41,6 +44,11 @@ func (d *SimDriver) CreateVolume(ctx context.Context, spec drivers.CreateVolumeS
 func (d *SimDriver) ExpandVolume(ctx context.Context, id core.VolumeID, newSize int64) error {
     if err := d.sleepWithJitter(ctx); err != nil { return err }
     return d.maybeFail("ExpandVolume")
+}
+
+func (d *SimDriver) DeleteVolume(ctx context.Context, id core.VolumeID) error {
+    if err := d.sleepWithJitter(ctx); err != nil { return err }
+    return d.maybeFail("DeleteVolume")
 }
 
 func (d *SimDriver) CreateHost(ctx context.Context, spec drivers.CreateHostSpec) (core.Host, error) {

@@ -9,7 +9,7 @@ type Config struct {
     MinDelay time.Duration
     MaxDelay time.Duration
     FailProb float64
-    RNGSeend int64
+    RNGSeed  int64
 }
 
 func (c Config) Validate() error {

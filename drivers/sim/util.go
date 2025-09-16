@@ -15,10 +15,17 @@ func (d *SimDriver) sleepWithJitter(ctx context.Context) error {
     if max < min { max = min }
     dur := min
     if max > min {
+        diff := max - min
+        // pick [0, diff]
+        var n64 int64
         d.mu.Lock()
-        n := d.rng.Int64N(int64(max-min) + 1)
+        if diff == time.Duration(^uint64(0)>>1) { // extremely large; avoid +1 overflow
+            n64 = d.rng.Int63()
+        } else {
+            n64 = d.rng.Int63n(int64(diff) + 1)
+        }
         d.mu.Unlock()
-        dur = min + time.Duration(n)
+        dur = min + time.Duration(n64)
     }
     t := time.NewTimer(dur)
     defer t.Stop()
@@ -46,7 +53,7 @@ func (d *SimDriver) maybeFail(op string) error {
 // chooseLUN decides a LUN when opts.LUN == nil (for MapVolume). Keep it simple now
 func (d *SimDriver) chooseLUN() int {
     d.mu.Lock()
-    n := d.rng.IntN(256)
+    n := d.rng.Intn(256)
     d.mu.Unlock()
     return n
 }
